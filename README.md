@@ -2,24 +2,28 @@
 
 Workstation skill for operating an [OpenClaw](https://docs.openclaw.ai) gateway.
 The same procedure covers a gateway on this machine or on another host. SSH
-targets, the CLI `PATH`, the systemd unit, the Control UI, and hook credentials
-live in an instance profile, not in the shared procedure.
+targets, the CLI prefix, the systemd unit, the Control UI, and the hook token
+source live in an instance profile, not in the shared procedure.
 
-Slash command: **`/openclaw`**. Optional argument: an instance name.
+Slash command: **`/openclaw`**. Optional argument: a profile name, or a path
+to a profile.
 
 ## Install
 
 `SKILL.md` is at the repo root. Point the harness skill directory at this
-repo. The symlink name is the skill name.
+repo. The symlink name is the skill name. `~/src/skill-openclaw` below is an
+example checkout path; the symlink target is whatever path was cloned.
 
 ```bash
-git clone git@github.com:dlewis7444/skill-openclaw.git ~/src/skill-openclaw
-mkdir -p ~/.grok/skills ~/.claude/skills
+git clone https://github.com/dlewis7444/skill-openclaw.git ~/src/skill-openclaw
+mkdir -p ~/.grok/skills ~/.claude/skills ~/.kimi-code/skills
 ln -s ~/src/skill-openclaw ~/.grok/skills/openclaw
 ln -s ~/src/skill-openclaw ~/.claude/skills/openclaw
+ln -s ~/src/skill-openclaw ~/.kimi-code/skills/openclaw
 ```
 
-Grok loads it from `~/.grok/skills/openclaw`.
+Grok loads it from `~/.grok/skills/openclaw`, Claude Code from
+`~/.claude/skills/openclaw`, and Kimi Code from `~/.kimi-code/skills/openclaw`.
 
 Copy `instances/example.md` into the deployment's own project and fill it in.
 Copy `.env.example` to `.env` and set `OPENCLAW_INSTANCE` to that file.

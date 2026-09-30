@@ -14,6 +14,7 @@ operate an OpenClaw gateway, on this machine or on another host.
 | Skill file | `SKILL.md` at this directory's root |
 | Grok install | `~/.grok/skills/openclaw` → this directory |
 | Claude Code install | `~/.claude/skills/openclaw` → this directory |
+| Kimi Code install | `~/.kimi-code/skills/openclaw` → this directory |
 
 The symlink's directory name is the skill name, `openclaw`. Human install
 steps are in `README.md`.

@@ -6,3 +6,8 @@
 .env
 .env.*
 !.env.example
+.envrc
+*~
+.vscode/
+.idea/
+Thumbs.db
