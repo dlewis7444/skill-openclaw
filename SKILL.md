@@ -18,8 +18,8 @@ metadata:
 # OpenClaw
 
 Operate an OpenClaw gateway from the workstation where this skill is installed.
-Read one instance profile, then follow this procedure. Command details that
-are not spelled out here come from `openclaw --help` on that gateway.
+Read one instance profile, then follow this procedure. A flag this file does
+not name comes from `openclaw --help` on that gateway.
 
 ## Instance profile
 
@@ -75,46 +75,72 @@ SSH, with the remote command in single quotes so the prefix expands on the gatew
 ```bash
 ssh <ssh> '<cli_prefix> openclaw <args>'
 ssh <ssh> 'systemctl --user is-active <unit>'
-ssh <ssh> 'journalctl --user -u <unit> -n 200 --no-pager'
 ```
 
-`transport: local` runs those commands in the current shell, with no `ssh`.
+Use that same quoting for `journalctl --user -u <unit>`. `transport: local`
+runs the commands in the current shell, with no `ssh`. The unit is a systemd
+user unit, so `systemctl --user` and `journalctl --user` run as the runtime
+user, which is the SSH user when transport is `ssh`.
 
 When the question is what the gateway is doing right now, query the host.
-If a command prints a token, leave it out of the chat and out of this repo.
+
+## Questions
+
+| Question | Do this |
+| --- | --- |
+| Is it up? | The health report below. A `Troubles:` line from `gateway status` is a failure only when the probe failed |
+| A job looks wrong | `openclaw cron list --all`, then `openclaw cron runs --id <id> --limit 3` for any last status other than ok or idle |
+| What is it doing? | `openclaw gateway status`, then `openclaw sessions --active 120` |
+| Run the assistant | `openclaw agent` through the gateway. `--deliver` defaults to false. The turn can call tools, so it waits for approval either way |
+| Send on a channel, with no agent turn | `openclaw message send`. Waits for approval |
+| Wake it over HTTP | The hook procedure below |
+| Change config | `openclaw config patch --dry-run`, include that output in the summary, then the approval gate |
+| Upgrade or repair | `openclaw update status` and `openclaw update --dry-run` may run. Applying an update waits. When the operator asks for a support bundle, use `openclaw gateway diagnostics export` |
+| Domain work (calendar, downloads, and the like) | Open the runtime skill file the profile names |
+
+`openclaw cron list` without `--all` hides disabled jobs. `openclaw cron` and
+`openclaw automations` are the same command family.
+
+`openclaw agent --local` runs an embedded agent on the gateway host using
+provider credentials. Use it only when the operator asked for an embedded run.
+
+## Health report
+
+Read-only. No approval. Report these and stop:
+
+- Unit state from `systemctl --user is-active <unit>`.
+- CLI version, gateway version, bind, port, and probe result from `openclaw gateway status`.
+- Enabled count, disabled count, and any last status other than ok or idle, from `openclaw cron list --all`. Use `openclaw cron status` only to confirm the scheduler is enabled.
+- No log lines when the probe succeeded and no job is in error.
+
+When the probe failed, or a job's last status is error, add the error text
+from `openclaw cron runs` or a short `openclaw logs --limit 30 --plain`.
+`journalctl --user -u <unit>` is the log source when the CLI cannot run. If a
+line is a memory-pressure or heap dump, say that memory pressure was logged
+and include the log line's own next step. Leave the dump out. The report
+does not restart the gateway.
+
+`openclaw status --deep` probes channel networks. Use it only when the
+question is a channel. `openclaw skills check` is for the case where a log
+line already says a skill was skipped.
+
+## What you report
+
+- A short status that answers the question. Command output stays as evidence.
+- Leave out a token, a `config get` of a credential, the gateway `.env`, and `openclaw.json`.
+- Leave out a heap, memory-pressure, or worker dump. Say that it was logged.
+- A channel id or session key is operational data. Repeat it when it is what the operator asked for.
 
 ## Gateway service
 
-The unit is a systemd user unit. `systemctl --user` and `journalctl --user`
-run as the runtime user, which is the SSH user when transport is `ssh`.
-
-Read-only checks:
-
-- `systemctl --user is-active <unit>`
-- `journalctl --user -u <unit> -n 200 --no-pager`
-- `openclaw gateway status`
-
 Restarting is `openclaw gateway restart` or `systemctl --user restart <unit>`.
-Both wait for approval below.
+Both wait for approval.
 
 ## CLI
 
-Scheduled jobs go through `openclaw cron`, the same command family as
-`openclaw automations`:
-
-```bash
-openclaw cron list
-openclaw cron runs --id <job-id>
-```
-
-`openclaw cron runs <job-id>` is the same lookup. For every other subcommand,
-run `openclaw --help` and `<subcommand> --help` on the gateway host and follow
-that output. When the help text is thin, the CLI docs are at
-<https://docs.openclaw.ai/cli>.
-
-Job definitions live in the gateway automation store behind that CLI. A legacy
-`cron/jobs.json` is often absent after migration. Leave `jobs.json`,
-`jobs.json.bak`, and `*.migrated` files in place.
+For a subcommand the question table does not name, run `openclaw --help` and
+`<subcommand> --help` on the gateway host and follow that output. When the
+help text is thin, the CLI docs are at <https://docs.openclaw.ai/cli>.
 
 ## Where files live
 
@@ -122,19 +148,25 @@ Paths below are under `runtime_root` on the gateway host.
 
 | Question | Where |
 | --- | --- |
-| Gateway config | `openclaw.json` |
-| Automation run history | `cron/runs/` |
-| Session state | `agents/<agent>/sessions/` |
+| Gateway config | `openclaw.json`, read and changed through `openclaw config` |
+| Jobs and run history | `openclaw cron` |
+| What the assistant is doing | `openclaw sessions` |
 | Assistant home | `workspace/` (`SOUL.md`, `IDENTITY.md`, `USER.md`, `MEMORY.md`, `AGENTS.md`, `skills/`) |
+
+`cron/jobs.json`, `jobs.json.bak`, `cron/runs/`, and `*.migrated` files are
+leftovers from store migration. Leave them in place. `openclaw cron status`
+prints the live store.
+
+Transcripts sit under `agents/<agent>/sessions/`. Read sessions through
+`openclaw sessions`, not by walking that directory.
 
 Leave `<runtime_root>/.env` unread and unprinted. When a task actually needs
 a secret, use the source named in the profile. Do not copy the value into
 chat, a commit, or a file in this skill repo.
 
-`openclaw.json` on a live gateway holds credentials, including `hooks.token`.
-Do not dump the file. Change it only with approval. `openclaw config`
-(`set`, `patch`, `unset`, `validate`) edits that file; confirm flags with
-`openclaw config --help`.
+`openclaw.json` holds credentials, including `hooks.token`. Changing it waits
+for approval. `openclaw config` (`set`, `patch`, `unset`, `validate`) is how
+a change is made. Confirm flags with `openclaw config --help`.
 
 `SOUL.md`, `IDENTITY.md`, `USER.md`, `MEMORY.md`, and the workspace
 `AGENTS.md` belong to the assistant. Change them only when the operator asks
@@ -149,11 +181,18 @@ follow it. The profile notes name the skills that matter for this instance.
 Open `control_ui` when the operator wants the UI. How login works is in the
 profile notes.
 
+Hook setup: <https://docs.openclaw.ai/automation/cron-jobs/webhooks>.
+The field table: <https://docs.openclaw.ai/gateway/config-hooks#hook-agent-payload>.
+
 Agent hook: `POST` the profile's `hooks_url` with header
 `Authorization: Bearer` and the token from `hooks_token_source`, read at call
-time. Core payload fields are `message`, `deliver`, `channel`, `to`,
-`sessionKey`, and `wakeMode`. The current schema, including the other optional
-fields, is <https://docs.openclaw.ai/automation/cron-jobs/webhooks>.
+time. Also send an `Idempotency-Key` header, and reuse that same key on a
+retry. A new key is a new run. Core payload fields are `message`, `deliver`,
+`channel`, `to`, `sessionKey`, and `wakeMode`.
+
+`deliver` defaults to true when the field is omitted, so a body that sets
+only `message` can announce on a channel. The dry-run summary shows the
+`deliver`, `channel`, and `to` that will actually be sent.
 
 Write the JSON body to a temporary file outside this repo and send it with
 `curl -d @file` so the shell does not rewrite it. Delete the file when the
@@ -167,13 +206,32 @@ ingress. It is a different credential from Control UI login.
 Show a dry-run summary and wait for the operator's explicit go-ahead before:
 
 - restarting the gateway
-- changing config (`openclaw.json` or `openclaw config`)
+- changing config
 - adding, editing, removing, enabling, disabling, or running a cron job
-- sending a message
+- an agent turn, whether or not the reply is delivered
+- sending a message, including `openclaw message send`
 - posting a webhook
 
-Status, logs, `cron list`, `cron runs`, `--help`, and `--version` proceed
-without that summary.
+`openclaw config patch --dry-run` is a read-only check. A summary that asks
+to write config includes that dry-run output.
+
+A command is not a status check when its `--help` offers `--fix`, `--repair`,
+`--force`, `--yes`, `--non-interactive`, restore, delete, or a service
+restart. Unless that gateway's help marks the form as lint, dry-run, or
+status, this includes bare `openclaw doctor`, bare `openclaw update`,
+`openclaw backup create`, `openclaw backup restore`, and `openclaw sessions`
+`delete`, `cleanup`, `compact`, and `archive`. Read-only forms that may run
+are `doctor --lint`, bare `doctor --json`, `update status`, and
+`update --dry-run`. `doctor --non-interactive` still runs migrations.
+`doctor --generate-gateway-token` writes a token. `update --no-restart` still
+updates the install. `backup create` writes an archive that includes
+credentials.
+
+Applying one of those waits. The summary names the flag that will write or
+restart. Pass `--yes` only when the go-ahead names it.
+
+The health report, `cron list`, `cron runs`, a sessions listing, `--help`,
+and `--version` proceed without that summary.
 
 ## Where this skill runs
 
