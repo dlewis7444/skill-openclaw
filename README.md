@@ -43,8 +43,6 @@ run inside the assistant. This one runs on the operator workstation.
 
 ## Publishing
 
-The GitHub repository is private. Tracked files stay generic: no hostnames,
-addresses, account names, or `pass` paths. The copyright line names the GitHub
-login `dlewis7444` and no personal name. Visibility stays private until a
-request to change it is explicit. Before that change, scan tracked files again
-and confirm `.env` is untracked.
+Tracked files stay generic: no hostnames, addresses, account names, or `pass`
+paths. The copyright line names the GitHub login `dlewis7444` and no personal
+name. `.env` stays gitignored and untracked.

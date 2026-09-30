@@ -32,7 +32,7 @@ Tracked files stay generic. No hostnames, addresses, personal names, account nam
 
 ## Git
 
-GitHub repository `dlewis7444/skill-openclaw`, private. A push to `main` needs an explicit authorization in the request. Creating this private repository was that authorization for the first push.
+GitHub repository `dlewis7444/skill-openclaw`. A push to `main` needs an explicit authorization in the request.
 
 ## Check
 
